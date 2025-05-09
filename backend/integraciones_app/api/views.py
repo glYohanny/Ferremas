@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
 from integraciones_app.models import ApiIntegrationLog, ApiConfig
-from api.serializers import ApiIntegrationLogSerializer, ApiConfigSerializer
+from .serializers import ApiIntegrationLogSerializer, ApiConfigSerializer
 
 # ---------------------------
 # INTEGRACIONES Y CONFIG API

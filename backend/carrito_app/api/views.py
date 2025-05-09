@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
 from carrito_app.models import Carrito, CarritoProducto
-from api.serializers import CarritoSerializer, CarritoProductoSerializer
+from .serializers import CarritoSerializer, CarritoProductoSerializer
 
 # ---------------------------
 # CARRITO DE COMPRAS

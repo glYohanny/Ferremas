@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
 from finanzas_app.models import TipoCambio, ConversionDivisa
-from api.serializers import TipoCambioSerializer, ConversionDivisaSerializer
+from .serializers import TipoCambioSerializer, ConversionDivisaSerializer
 
 # ---------------------------
 # TIPOS DE CAMBIO Y CONVERSIONES
