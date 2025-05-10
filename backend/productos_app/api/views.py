@@ -8,7 +8,7 @@ class ProductoViewSet(viewsets.ModelViewSet):
     """
     queryset = Product.objects.all() # Uses the imported Product model
     serializer_class = ProductoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         """
@@ -33,4 +33,4 @@ class CategoriaViewSet(viewsets.ModelViewSet):
     """
     queryset = Category.objects.all()
     serializer_class = CategoriaSerializer
-    permission_classes = [permissions.IsAuthenticated] # O ajusta los permisos según necesites
+    permission_classes = [permissions.AllowAny] # Permite el acceso a cualquier usuario (autenticado o no)

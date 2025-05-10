@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-f3@0eu$gnu3e^v1__n8wj0%^pi8i^&@!mgf(@kiom=as+6_)0g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1','192.168.242.231']
 
 
 # Application definition
@@ -41,10 +41,11 @@ INSTALLED_APPS = [
         
     
     'rest_framework',
-    
+    'rest_framework_authtoken',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -129,3 +130,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Modelo de Usuario Personalizado
 AUTH_USER_MODEL = 'usuarios_app.Usuario'
+
+# CORS
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173"
+]
+
+# Redirección después del login
+LOGIN_REDIRECT_URL = '/' # Puedes cambiar esto a '/api/' o cualquier otra ruta válida

@@ -11,7 +11,7 @@ from .serializers import (
 class RolViewSet(viewsets.ModelViewSet):
     queryset = Rol.objects.all()
     serializer_class = RolSerializer
-    permission_classes = [permissions.IsAdminUser] # Generalmente los roles los maneja un admin
+    permission_classes = [permissions.AllowAny] # Generalmente los roles los maneja un admin
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
