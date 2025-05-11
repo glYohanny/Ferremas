@@ -1,6 +1,6 @@
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -41,7 +41,7 @@ INSTALLED_APPS = [
         
     
     'rest_framework',
-    'rest_framework_authtoken',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -138,3 +138,16 @@ CORS_ALLOWED_ORIGINS = [
 
 # Redirección después del login
 LOGIN_REDIRECT_URL = '/' # Puedes cambiar esto a '/api/' o cualquier otra ruta válida
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication', # Opcional: mantener para la API Navegable
+        # 'rest_framework.authentication.BasicAuthentication', # Opcional
+    ),
+    # Puedes añadir configuraciones de permisos por defecto aquí si lo deseas
+}
+
+# Configuración para archivos multimedia (MEDIA)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

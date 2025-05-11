@@ -1,14 +1,18 @@
 import axios from 'axios';
 
-// Ajusta esta URL base para que coincida con los endpoints de tu geografia_app
-const apiClient = axios.create({
-    baseURL: 'http://localhost:8000/api/geografia/', // Ejemplo
-    // headers: {
-    //   'Authorization': `Bearer ${localStorage.getItem('token')}`
-    // }
-});
+const API_BASE_URL = 'http://localhost:8000/api/geografia/'; // Ajusta si tu URL base es diferente
 
-export const getRegiones = () => apiClient.get('/regiones/');
-export const getComunasByRegion = (regionId) => apiClient.get(`/comunas/?region=${regionId}`); // Ejemplo de filtro
-
-export default apiClient;
+/**
+ * Obtiene la lista de todas las comunas.
+ */
+export const getComunas = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}comunas/`);
+    // La API de DRF con paginación devuelve los resultados en response.data.results
+    // Si no usas paginación o es un ReadOnlyModelViewSet simple, podría ser solo response.data
+    return response.data.results || response.data; 
+  } catch (error) {
+    console.error('Error al obtener las comunas:', error.response ? error.response.data : error.message);
+    throw error; // Relanzar para que el componente pueda manejarlo
+  }
+};

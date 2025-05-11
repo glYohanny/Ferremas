@@ -8,7 +8,7 @@ from .views import ( # Cambiado a importación relativa
 # Crear router para ViewSets
 router = DefaultRouter()
 router.register(r'roles', RolViewSet)
-router.register(r'usuarios', UsuarioViewSet)
+router.register(r'usuario', UsuarioViewSet, basename='usuario') # 'usuario' es el basename
 router.register(r'tipos-personal', TipoPersonalViewSet)
 router.register(r'personal', PersonalViewSet)
 router.register(r'clientes', ClienteViewSet)

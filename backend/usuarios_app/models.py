@@ -1,31 +1,36 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+
 
 # --- Gestor para el modelo de Usuario Personalizado ---
 class UsuarioManager(BaseUserManager):
-    def create_user(self, nombre_usuario, password=None, **extra_fields):
+    def create_user(self, nombre_usuario, email, password=None, **extra_fields):
 
         if not nombre_usuario:
             raise ValueError('El nombre de usuario debe ser establecido')
-        
+        if not email:
+            raise ValueError('El email debe ser establecido')
+
         # Normalizar el nombre de usuario
         nombre_usuario = nombre_usuario.strip()
-        
+        email = self.normalize_email(email)
+
         # Crear una nueva instancia del modelo
-        user = self.model(nombre_usuario=nombre_usuario, **extra_fields)
-        
+        user = self.model(nombre_usuario=nombre_usuario, email=email, **extra_fields)
+
         # Establecer la contraseña de forma segura
         if password:
             user.set_password(password)
         else:
             user.set_password(None)
-        
+
         # Guardar el usuario
         user.save(using=self._db)
         return user
-
-    def create_superuser(self, nombre_usuario, password=None, **extra_fields):
+    def create_superuser(self, nombre_usuario, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('cambio_password_pendiente', False)
@@ -35,7 +40,7 @@ class UsuarioManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser debe tener is_superuser=True.')
 
-        return self.create_user(nombre_usuario, password, **extra_fields)
+        return self.create_user(nombre_usuario, email, password, **extra_fields)
 
 class Rol(models.Model):
     nombre_rol = models.CharField(max_length=50, unique=True)
@@ -50,15 +55,22 @@ class Rol(models.Model):
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     nombre_usuario = models.CharField(max_length=100, unique=True)
+    email = models.EmailField(_('email address'), unique=True) # Temporarily allow null
+    first_name = models.CharField(_('first name'), max_length=150, blank=True)
+    last_name = models.CharField(_('last name'), max_length=150, blank=True)
+
     rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True)
     cambio_password_pendiente = models.BooleanField(default=True)
+    date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
 
     is_active = models.BooleanField(default=True, verbose_name='activo')
     is_staff = models.BooleanField(default=False, verbose_name='es staff')
+    # is_superuser es heredado de PermissionsMixin
 
     objects = UsuarioManager()
 
     USERNAME_FIELD = 'nombre_usuario'
+    REQUIRED_FIELDS = ['email'] # Campos requeridos al crear un superusuario, además del USERNAME_FIELD y password
 
     groups = models.ManyToManyField(
         Group,

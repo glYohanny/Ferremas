@@ -26,7 +26,7 @@ class Producto(models.Model):
     marca = models.CharField(max_length=50, blank=True, null=True)
     codigo_producto = models.CharField(max_length=50, unique=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, null=True, blank=True)
-    # imagen = models.ImageField(upload_to='productos/', null=True, blank=True, verbose_name="Imagen del producto")
+    imagen = models.ImageField(upload_to='productos/', null=True, blank=True, verbose_name="Imagen del producto")
 
     class Meta:
         db_table = 'productos'
