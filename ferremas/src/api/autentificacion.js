@@ -97,7 +97,7 @@ export const getCurrentUser = async () => {
   try {
     // Asegúrate de que el token de autorización ya esté configurado en axios.defaults.headers.common
     // La función login() ya hace esto.
-    const response = await axios.get(`${API_URL}usuario/me/`); // URL corregida
+    const response = await axios.get(`${API_URL}usuarios/usuario/me/`); // URL ajustada a la correcta
     return response.data; // Devuelve los datos del usuario, incluyendo su rol/categoría
   } catch (error) {
     let errorMessage = 'Error obteniendo la información del usuario.';

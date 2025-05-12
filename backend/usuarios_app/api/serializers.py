@@ -186,3 +186,35 @@ class ClienteRegistroSerializer(serializers.ModelSerializer):
             comuna=comuna_cliente_data
         )
         return user
+
+# ---------------------------
+# SERIALIZER PARA SOLICITUD DE RESETEO DE CONTRASEÑA
+# ---------------------------
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    # No necesitamos métodos create() o update() aquí ya que solo es para la entrada.
+
+# ---------------------------
+# SERIALIZER PARA CONFIRMAR EL RESETEO DE CONTRASEÑA
+# ---------------------------
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        min_length=8 # Puedes ajustar o añadir más validadores de contraseña aquí
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'}
+    )
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Las contraseñas no coinciden."})
+        # Aquí podrías añadir más validaciones de complejidad de contraseña si lo deseas
+        return attrs

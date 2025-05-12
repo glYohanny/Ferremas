@@ -7,6 +7,9 @@ import { getCurrentUser, refreshToken, logout } from './api/autentificacion';
 // Importa tus componentes de página/vista
 import LoginForm from './views/secion/inicio_secion.jsx';
 import RegistroForm from './views/secion/registro_cliente.jsx'; // Importa RegistroForm aquí
+import RecuperarPasswordForm from './views/secion/recuperar_contraseña.jsx'; // Importar el nuevo componente
+import ConfirmarRecuperacionForm from './views/secion/confirmacion_de_recuperacion.jsx'; 
+import RoleBasedHomePage from './views/secion/RoleBasedHomePage.jsx'; // Importar el nuevo componente
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -64,9 +67,19 @@ function App() {
           element={!currentUser ? <RegistroForm /> : <Navigate to="/" />} 
         />
         <Route 
-          path="/" 
-          element={currentUser ? <div>Página Principal Protegida</div> : <Navigate to="/login" />} 
+          path="/recuperar-password"
+          element={!currentUser ? <RecuperarPasswordForm /> : <Navigate to="/" />} // Solo accesible si no está logueado
         />
+        <Route 
+          path="/reset-password-confirm/:uidb64/:token/"  // <--- CAMBIO AQUÍ
+          element={!currentUser ? <ConfirmarRecuperacionForm /> : <Navigate to="/" />} 
+        />
+
+        <Route 
+          path="/" 
+          element={currentUser ? <RoleBasedHomePage currentUser={currentUser} /> : <Navigate to="/login" />} 
+        />
+
         {/* Añade más rutas aquí */}
       </Routes>
     </Router>

@@ -15,13 +15,15 @@ function LoginForm({ onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setUserData(null);
+    // setUserData(null); // Eliminado o comentado ya que setUserData no está definido
     try {
-      await login(username, password, rememberMe); // Pasar el estado de rememberMe a la función login
+      const loginResponse = await login(username, password, rememberMe); // Pasar el estado de rememberMe a la función login
+      console.log('Respuesta de la API de login:', loginResponse); // Confirmación de la conexión de login
       console.log('Login exitoso, obteniendo datos del usuario...');
       const currentUser = await getCurrentUser(); // Luego obtén los datos del usuario
       // setUserData(currentUser); // Actualizar estado local (opcional si App.jsx lo maneja)
-      console.log('Datos del usuario:', currentUser);
+      console.log('Respuesta de la API de getCurrentUser (Datos del usuario):', currentUser); // Confirmación de la conexión de getCurrentUser
+
 
       // ¡Importante! Llama a onLoginSuccess para actualizar el estado en App.jsx
       if (onLoginSuccess) {
@@ -30,7 +32,7 @@ function LoginForm({ onLoginSuccess }) {
 
       // AQUÍ ES DONDE USAS LA CATEGORÍA/ROL
       if (currentUser && currentUser.rol) { // Asumiendo que el campo se llama 'rol'
-        const userRoleName = currentUser.rol.nombre_rol; // O como se llame el campo del nombre en tu serializador de Rol
+        const userRoleName = currentUser.rol?.nombre_rol; // O como se llame el campo del nombre en tu serializador de Rol
         console.log('Rol del usuario:', userRoleName);
         // En lugar de alert y window.location.href, usa navigate
         if (userRoleName === 'Administrador') {

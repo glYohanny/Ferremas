@@ -6,9 +6,6 @@ from rest_framework_simplejwt.views import (
 from django.conf import settings
 from django.conf.urls.static import static
 
-from usuarios_app.api.views import ClienteRegistroView
-
-
 urlpatterns = [
     
     path('admin/', admin.site.urls),
@@ -25,9 +22,7 @@ urlpatterns = [
     path('api/carrito/', include('carrito_app.api.urls')),
     path('api/integraciones/', include('integraciones_app.api.urls')),
     path('api/finanzas/', include('finanzas_app.api.urls')),
-   
-    #rutas extras
-    path('api/registro/cliente/', ClienteRegistroView.as_view(), name='cliente-registro'),
+    
     # Authentication URLs (opcionales)
     path('api-auth/', include('rest_framework.urls')),
     

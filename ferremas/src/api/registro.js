@@ -3,7 +3,7 @@
 import axios from 'axios';
 
 // Asegúrate que la URL base y el endpoint sean los correctos para tu API de registro
-const API_REGISTRO_URL = 'http://localhost:8000/api/registro/cliente/'; // O la URL que corresponda
+const API_REGISTRO_URL = 'http://localhost:8000/api/usuarios/registro/cliente/'; // O la URL que corresponda
 
 export const registrarCliente = async (userData) => {
   try {
