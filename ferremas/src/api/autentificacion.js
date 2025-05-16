@@ -56,6 +56,19 @@ export const logout = () => {
   }
 };
 
+// ... (otras importaciones y funciones de autenticación) ...
+
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken'); // O de donde obtengas tu token
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+};
+
+// ... (resto de tus funciones de autenticación) ...
+
+
 // Opcional: Función para refrescar el token de acceso
 export const refreshToken = async () => {
     // Intenta obtener de localStorage primero, luego de sessionStorage

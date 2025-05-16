@@ -1,56 +1,41 @@
 // En tu componente de frontend, por ejemplo, dentro de la función handleSubmit
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom'; // Importar useNavigate y Link
-import { login, getCurrentUser } from '../../api/autentificacion'; // Ajusta la ruta
+// import { login, getCurrentUser } from '../../api/autentificacion'; // Estas llamadas API deben ir DENTRO de la función login del AuthContext
+import { toast } from 'react-toastify'; // Importar toast
+import { useAuth } from '../../components/AuthContext'; // Importar useAuth
 
-// El componente LoginForm ahora acepta onLoginSuccess como prop
-function LoginForm({ onLoginSuccess }) {
+// El componente LoginForm ahora usa useAuth()
+function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false); // Nuevo estado para "Recordarme"
-  // const [userData, setUserData] = useState(null); // Este estado local es menos crucial si App.jsx maneja currentUser
+  const [rememberMe, setRememberMe] = useState(false); // Re-introducir el estado para "Recordarme"
   const navigate = useNavigate(); // Hook para la navegación
+  // Obtener la función de login del AuthContext en el nivel superior del componente
+  const { login: authLogin } = useAuth(); 
+
+  // const [userData, setUserData] = useState(null); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    // setUserData(null); // Eliminado o comentado ya que setUserData no está definido
+    setError(''); // Es buena práctica limpiar errores anteriores al intentar de nuevo
+    // La variable 'authLogin' ya está disponible desde el scope superior del componente,
+    // donde se obtuvo correctamente con useAuth(). No es necesario volver a llamarlo aquí.
+
     try {
-      const loginResponse = await login(username, password, rememberMe); // Pasar el estado de rememberMe a la función login
-      console.log('Respuesta de la API de login:', loginResponse); // Confirmación de la conexión de login
-      console.log('Login exitoso, obteniendo datos del usuario...');
-      const currentUser = await getCurrentUser(); // Luego obtén los datos del usuario
-      // setUserData(currentUser); // Actualizar estado local (opcional si App.jsx lo maneja)
-      console.log('Respuesta de la API de getCurrentUser (Datos del usuario):', currentUser); // Confirmación de la conexión de getCurrentUser
+      // Llamar a la función login del AuthContext.
+      // Esta función DEBE manejar la llamada a la API, guardar el token,
+      // obtener los datos del usuario y actualizar el estado del contexto (currentUser).
+      await authLogin(username, password); // Pasa solo username y password si rememberMe se maneja en el backend o AuthContext
 
+      toast.success("¡Inicio de sesión exitoso! Redirigiendo..."); // Notificación de éxito
 
-      // ¡Importante! Llama a onLoginSuccess para actualizar el estado en App.jsx
-      if (onLoginSuccess) {
-        onLoginSuccess(currentUser);
-      }
-
-      // AQUÍ ES DONDE USAS LA CATEGORÍA/ROL
-      if (currentUser && currentUser.rol) { // Asumiendo que el campo se llama 'rol'
-        const userRoleName = currentUser.rol?.nombre_rol; // O como se llame el campo del nombre en tu serializador de Rol
-        console.log('Rol del usuario:', userRoleName);
-        // En lugar de alert y window.location.href, usa navigate
-        if (userRoleName === 'Administrador') {
-          console.log('Redirigiendo a dashboard de administrador...');
-          navigate('/admin-dashboard'); // Ejemplo de ruta para admin
-        } else if (userRoleName === 'Cliente') {
-          console.log('Redirigiendo a portal de cliente...');
-          navigate('/'); // Ejemplo de ruta para cliente (página principal)
-        } else {
-          console.log(`Rol ${userRoleName} reconocido, redirigiendo a la página principal...`);
-          navigate('/'); // Ruta por defecto
-        }
-      } else {
-        console.warn('No se pudo determinar el rol del usuario.');
-        navigate('/'); // Ruta por defecto si no hay rol
-      }
-      // Si no hay lógica de roles o después de la lógica de roles, podrías simplemente navegar a '/'
-      // navigate('/'); // Descomenta si quieres una redirección general después del login exitoso
+      // La redirección ahora se maneja principalmente en App.jsx
+      // a través del componente <Navigate to="/dashboard" />
+      // que se activa cuando currentUser se actualiza en el AuthContext.
+      // RoleBasedHomePage en /dashboard se encargará de la redirección final por rol.
+      // No necesitas lógica de redirección compleja aquí.
 
     } catch (err) {
       setError(err.message || 'Error en el proceso de inicio de sesión o al obtener datos del usuario.');
