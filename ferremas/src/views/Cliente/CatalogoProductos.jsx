@@ -37,7 +37,7 @@ function CatalogoProductos() {
 
     cargarProductos();
       // Configurar el polling para recargar productos cada 30 segundos
-    const intervalId = setInterval(cargarProductos, 3000000); // 30000 ms = 30 segundos
+    const intervalId = setInterval(cargarProductos, 30000); // Corregido: 30000 ms = 30 segundos
 
     // Función de limpieza para detener el polling cuando el componente se desmonte
     return () => {
@@ -92,7 +92,7 @@ function CatalogoProductos() {
             <div className="p-4 flex flex-col flex-grow">
               <Link to={`/productos/${producto.id}`} className="block">
                 <h2 className="text-xl font-semibold text-slate-700 mb-2 truncate" title={producto.nombre_producto}>{producto.nombre_producto}</h2>
-                <p className="text-slate-600 mb-1 text-sm">Categoría: {producto.categoria?.nombre || 'N/A'}</p>
+                <p className="text-slate-600 mb-1 text-sm">Categoría: {producto.categoria?.nombre_categoria || 'N/A'}</p>
                 <p className="text-lg font-bold text-slate-800">${producto.precio ? parseFloat(producto.precio).toFixed(2) : 'N/A'}</p>
               </Link>
               <button

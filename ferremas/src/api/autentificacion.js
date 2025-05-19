@@ -1,7 +1,11 @@
 // Ejemplo: src/api/auth.js (en tu proyecto frontend)
 import axios from 'axios';
+import clientInstanceWithInterceptors from './cliente'; // Importar la instancia de cliente.js
 
 const API_URL = 'http://localhost:8000/api/'; // URL base de tu API
+
+// RE-EXPORTAR la instancia de cliente.js para que AuthContext y otros módulos la usen consistentemente
+export const apiClient = clientInstanceWithInterceptors;
 
 export const login = async (nombre_usuario, password, rememberMe = false) => {
   console.log("Intentando login con nombre_usuario:", nombre_usuario, "y password:", typeof password === 'string' && password.length > 0 ? "[CONTRASEÑA PRESENTE]" : "[CONTRASEÑA VACÍA O INVÁLIDA]", "Recordarme:", rememberMe);
@@ -19,11 +23,8 @@ export const login = async (nombre_usuario, password, rememberMe = false) => {
         storage.setItem('refreshToken', response.data.refresh);
       }
 
-      // Configura axios para enviar el token en futuras peticiones
-      // Considerar usar una instancia de Axios dedicada o interceptores para un manejo más robusto.
-      if (axios.defaults?.headers?.common) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-      }
+      // AuthContext se encargará de establecer apiClient.defaults.headers.common['Authorization']
+      // después de que esta función de login devuelva el token.
       return response.data; // Devuelve los datos, incluyendo los tokens
     }
   } catch (error) {
@@ -50,21 +51,11 @@ export const logout = () => {
   localStorage.removeItem('refreshToken');
   sessionStorage.removeItem('accessToken');
   sessionStorage.removeItem('refreshToken');
-  // Elimina el header de autorización de axios
-  if (axios.defaults?.headers?.common) {
-    delete axios.defaults.headers.common['Authorization'];
-  }
+  // AuthContext se encargará de limpiar apiClient.defaults.headers.common['Authorization']
+  // para la instancia apiClient (re-exportada arriba).
 };
 
 // ... (otras importaciones y funciones de autenticación) ...
-
-export const getAuthHeaders = () => {
-  const token = localStorage.getItem('accessToken'); // O de donde obtengas tu token
-  if (token) {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return {};
-};
 
 // ... (resto de tus funciones de autenticación) ...
 
@@ -77,20 +68,18 @@ export const refreshToken = async () => {
     return Promise.reject("No refresh token available");
   }
   try {
-    const response = await axios.post(`${API_URL}token/refresh/`, {
+    // Usar axios directamente para el refresh, ya que apiClient podría entrar en un bucle de interceptor
+    const response = await axios.post(`${API_URL}token/refresh/`, { 
       refresh: currentRefreshToken
     });
     if (response.data.access) {
-      // Almacenar el nuevo accessToken. Considerar la misma lógica de storage que en login si es necesario.
-      // Por simplicidad y dado que los accessTokens son cortos, localStorage es común aquí.
+      const newAccessToken = response.data.access;
+      // El interceptor de respuesta en cliente.js (que llama a esta función)
+      // ya se encarga de actualizar localStorage y apiClient.defaults.headers.common.
+      // Solo necesitamos devolver el nuevo token.
       const storage = localStorage.getItem('refreshToken') ? localStorage : sessionStorage; // O simplemente localStorage
-      storage.setItem('accessToken', response.data.access);
-      
-      if (axios.defaults?.headers?.common) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-      }
-      return response.data.access;
-    
+      storage.setItem('accessToken', newAccessToken); // Asegurar que se actualice en el storage correcto.
+      return newAccessToken; // Devolver el nuevo token de acceso
     } else {
       // Si no hay accessToken en la respuesta, algo salió mal
       throw new Error("No se recibió un nuevo token de acceso al refrescar.");
@@ -98,7 +87,8 @@ export const refreshToken = async () => {
   } catch (error) {
     console.error('Error al refrescar el token:', error);
     // Si el refresh token es inválido o expiró, probablemente debas desloguear al usuario
-    logout();
+    // El interceptor en cliente.js ya llama a performLogout (que es esta función logout) en caso de error de refresco.
+    // logout(); // Redundante si el interceptor lo maneja.
     throw error;
   }
 };
@@ -108,9 +98,9 @@ export const refreshToken = async () => {
 // Necesitarás un endpoint en tu API Django, por ejemplo: /api/usuarios/me/
 export const getCurrentUser = async () => {
   try {
-    // Asegúrate de que el token de autorización ya esté configurado en axios.defaults.headers.common
-    // La función login() ya hace esto.
-    const response = await axios.get(`${API_URL}usuarios/usuario/me/`); // URL ajustada a la correcta
+    // Usar la instancia apiClient (re-exportada de cliente.js),
+    // que tiene los interceptores y cuyas cabeceras por defecto son manejadas por AuthContext.
+    const response = await apiClient.get(`/usuarios/usuario/me/`); // URL relativa a API_BASE_URL
     return response.data; // Devuelve los datos del usuario, incluyendo su rol/categoría
   } catch (error) {
     let errorMessage = 'Error obteniendo la información del usuario.';

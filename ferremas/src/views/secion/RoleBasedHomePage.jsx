@@ -27,6 +27,8 @@ function RoleBasedHomePage() {
 
   const roleName = currentUser.rol?.nombre_rol;
 
+  console.log('RoleBasedHomePage: Intentando renderizar para rol:', roleName);
+
   // La lógica del switch permanece igual, pero ahora currentUser viene del contexto
   switch (roleName) {
     case 'Administrador': return <HomePageAdmin currentUser={currentUser} />;

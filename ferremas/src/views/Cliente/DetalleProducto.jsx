@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { obtenerProductoPorId } from '../../api/productos'; // Ajusta la ruta
 import { toast } from 'react-toastify';
+import { obtenerIndicadoresEconomicos } from '../../api/bancoCentral'; // Para obtener valor del dólar
 import { useCart } from '../../components/componets_CarritoCompra'; // Importar el hook del carrito
 
 function DetalleProducto() {
@@ -11,6 +12,9 @@ function DetalleProducto() {
   // const [error, setError] = useState(null); // Manejado por toasts
   const { addItem } = useCart(); // Obtener la función addItem del contexto del carrito
   const navigate = useNavigate();
+  const [valorDolar, setValorDolar] = useState(null);
+  const [loadingDolar, setLoadingDolar] = useState(true);
+  const [monedaVisible, setMonedaVisible] = useState('CLP'); // 'CLP' o 'USD'
 
   useEffect(() => {
     const cargarProducto = async () => {
@@ -30,6 +34,24 @@ function DetalleProducto() {
     if (productoId) {
       cargarProducto();
     }
+
+    const cargarValorDolar = async () => {
+      try {
+        setLoadingDolar(true);
+        const indicadores = await obtenerIndicadoresEconomicos();
+        if (indicadores && indicadores.dolar && indicadores.dolar.valor) {
+          setValorDolar(indicadores.dolar.valor);
+        } else {
+          console.warn('No se pudo obtener el valor del dólar desde los indicadores.');
+        }
+      } catch (err) {
+        console.error("Error al cargar valor del dólar:", err);
+        toast.error('No se pudo cargar el tipo de cambio del dólar.');
+      } finally {
+        setLoadingDolar(false);
+      }
+    };
+    cargarValorDolar();
   }, [productoId]);
 
   const handleAddToCart = () => {
@@ -40,7 +62,24 @@ function DetalleProducto() {
       toast.warn('Este producto está agotado o no se puede añadir.');
     }
   };
-  if (loading) {
+
+  const getPrecioVisible = () => {
+    if (!producto || !producto.precio) return 'N/A';
+    const precioCLP = parseFloat(producto.precio);
+
+    if (monedaVisible === 'USD') {
+      if (loadingDolar) return 'Calculando USD...';
+      if (valorDolar) {
+        const precioUSD = precioCLP / valorDolar;
+        return `USD ${precioUSD.toFixed(2)}`;
+      }
+      return 'USD N/A (sin tipo de cambio)';
+    }
+    // Por defecto CLP
+    return `CLP ${new Intl.NumberFormat('es-CL').format(precioCLP)}`;
+  };
+
+  if (loading || (monedaVisible === 'USD' && loadingDolar && !valorDolar)) {
     return <div className="text-center py-10">Cargando detalle del producto...</div>;
   }
 
@@ -82,8 +121,19 @@ function DetalleProducto() {
         </div>
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">{producto.nombre_producto}</h1>
-          <p className="text-slate-500 text-sm mb-3">SKU: {producto.codigo_producto || 'N/A'} | Categoría: {producto.categoria?.nombre || 'N/A'}</p>
-          <p className="text-2xl font-semibold text-slate-900 mb-4">${producto.precio ? parseFloat(producto.precio).toFixed(2) : 'N/A'}</p>
+          <p className="text-slate-500 text-sm mb-3">SKU: {producto.codigo_producto || 'N/A'} | Categoría: {producto.categoria?.nombre_categoria || 'N/A'}</p>
+          
+          <div className="flex items-center mb-4">
+            <p className="text-2xl font-semibold text-slate-900 mr-4">{getPrecioVisible()}</p>
+            {valorDolar && (
+              <button 
+                onClick={() => setMonedaVisible(monedaVisible === 'CLP' ? 'USD' : 'CLP')}
+                className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 py-1 px-2 rounded"
+              >
+                Ver en {monedaVisible === 'CLP' ? 'USD' : 'CLP'}
+              </button>
+            )}
+          </div>
           <p className="text-slate-700 mb-6 leading-relaxed">{producto.descripcion || 'No hay descripción disponible.'}</p>
           <p className="text-sm text-slate-600 mb-4">Stock disponible: {producto.stock > 0 ? `${producto.stock} unidades` : 'Agotado'}</p>
           {/* Aquí iría el botón "Añadir al carrito" y selector de cantidad */}

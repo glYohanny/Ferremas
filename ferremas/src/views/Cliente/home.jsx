@@ -65,13 +65,13 @@ function HomePage({ currentUser }) {
 
       <div className="container mx-auto p-4 md:p-8">
         {currentUser && (
-          <div className="bg-white p-6 rounded-lg shadow-md mb-8 text-center">
+          <div className="bg-white p-6 rounded-lg shadow-md mb-8 text-center flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <p className="text-lg text-slate-600">
               Sesión iniciada como: <span className="font-semibold text-slate-700">{userRole}</span>
             </p>
             {/* Enlaces específicos para usuarios logueados */}
-            {/* <Link to="/mis-pedidos" className="text-blue-600 hover:underline mr-4">Mis Pedidos</Link> */}
-            {/* <Link to="/mi-perfil" className="text-blue-600 hover:underline">Mi Perfil</Link> */}
+            <Link to="/mis-pedidos" className="text-sky-600 hover:text-sky-700 font-semibold hover:underline">Mis Pedidos</Link>
+            <Link to="/mi-perfil" className="text-sky-600 hover:text-sky-700 font-semibold hover:underline">Mi Perfil</Link>
           </div>
         )}
 

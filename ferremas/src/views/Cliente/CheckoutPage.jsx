@@ -4,6 +4,7 @@ import { useCart } from '../../components/componets_CarritoCompra'; // Ajusta la
 import { crearPedido } from '../../api/pedidos';
 import { getRegiones, getComunas } from '../../api/geografia'; // Para selectores de región y comuna
 import { toast } from 'react-toastify';
+import { iniciarTransaccionWebpay } from '../../api/pagos'; // Importar la función para Webpay
 import { useAuth } from '../../components/AuthContext'; // Para obtener datos del usuario logueado
 
 const CheckoutPage = () => {
@@ -16,10 +17,10 @@ const CheckoutPage = () => {
     nombre_completo_contacto: currentUser?.cliente_profile?.nombre_completo_display || currentUser?.first_name || currentUser?.nombre_usuario || '',
     email_contacto: currentUser?.email || '',
     telefono_contacto: '',
-    direccion_envio: '',
+    direccion_envio: currentUser?.cliente_profile?.direccion_predeterminada || '', // Pre-rellenar si existe
     region_id: '', // ID de la región seleccionada
     comuna_envio_id: '', // Coincide con el backend
-    estado_pedido_id: '',
+    estado_pedido_id: '', // Este debería ser "Pendiente de Pago" o similar al crear
     tipo_entrega_id: '',
     metodo_pago_id: '',
     // nota_adicional: '', // Opcional
@@ -89,14 +90,12 @@ const CheckoutPage = () => {
         setMetodosPago(metodosData || []);
 
         // Opcional: Preseleccionar el primer valor si existe y el campo está vacío
-        if (estadosData?.length > 0 && !formData.estado_pedido_id) {
-          setFormData(prev => ({ ...prev, estado_pedido_id: estadosData[0].id }));
-        }
+        // Para estado_pedido_id, es mejor que el backend lo asigne o que se seleccione uno específico como "Pendiente de Pago"
+        // if (estadosData?.length > 0 && !formData.estado_pedido_id) {
+        //   setFormData(prev => ({ ...prev, estado_pedido_id: estadosData[0].id }));
+        // }
         if (tiposData?.length > 0 && !formData.tipo_entrega_id) {
           setFormData(prev => ({ ...prev, tipo_entrega_id: tiposData[0].id }));
-        }
-        if (metodosData?.length > 0 && !formData.metodo_pago_id) {
-          setFormData(prev => ({ ...prev, metodo_pago_id: metodosData[0].id }));
         }
       } catch (error) {
         toast.error('Error al cargar opciones del pedido.');
@@ -141,8 +140,9 @@ const CheckoutPage = () => {
         setIsSubmitting(false);
         return;
     }
-    if (!formData.estado_pedido_id || !formData.tipo_entrega_id || !formData.metodo_pago_id) {
-        toast.error('Por favor, selecciona estado de pedido, tipo de entrega y método de pago.');
+    // El estado_pedido_id usualmente se define en el backend al crear o se usa uno por defecto como "Pendiente de Pago"
+    if (!formData.tipo_entrega_id || !formData.metodo_pago_id) {
+        toast.error('Por favor, selecciona tipo de entrega y método de pago.');
         setIsSubmitting(false);
         return;
     }
@@ -153,7 +153,7 @@ const CheckoutPage = () => {
       telefono_contacto: formData.telefono_contacto,
       direccion_envio: formData.direccion_envio,
       comuna_envio_id: formData.comuna_envio_id,
-      estado_pedido_id: formData.estado_pedido_id,
+      // estado_pedido_id: formData.estado_pedido_id, // Es mejor que el backend asigne el estado inicial
       tipo_entrega_id: formData.tipo_entrega_id,
       metodo_pago_id: formData.metodo_pago_id,
       items_input: cartItems.map(item => ({ producto_id: item.id, cantidad: item.quantity })), // Coincide con el backend
@@ -161,16 +161,47 @@ const CheckoutPage = () => {
 
     try {
       const pedidoCreado = await crearPedido(pedidoData);
-      toast.success(`¡Pedido #${pedidoCreado.id || ''} realizado con éxito!`); // Asumiendo que el backend devuelve el ID del pedido
-      clearCart();
-      // Podrías redirigir a una página de confirmación de pedido
-      // navigate(`/pedido-confirmado/${pedidoCreado.id}`);
-      navigate('/'); // Por ahora, redirigimos al inicio
+      toast.success(`Pedido #${pedidoCreado.id || ''} registrado. Procediendo al pago...`);
+      
+      // Identificar si el método de pago es Webpay
+      // Necesitarás saber el ID de Webpay en tu BD. Asumamos que es 'ID_WEBPAY'
+      // Puedes obtenerlo de metodosPago o tenerlo como una constante si es fijo.
+      const metodoWebpay = metodosPago.find(m => m.descripcion_pago?.toLowerCase().includes('webpay'));
+      const ID_WEBPAY_EN_TU_BD = metodoWebpay ? metodoWebpay.id : null;
+
+      if (pedidoCreado && String(formData.metodo_pago_id) === String(ID_WEBPAY_EN_TU_BD)) {
+        const webpayData = await iniciarTransaccionWebpay(pedidoCreado.id);
+
+        if (webpayData && webpayData.url_redirect && webpayData.token) {
+          // Redirigir a Webpay usando un formulario POST
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = webpayData.url_redirect;
+
+          const tokenInput = document.createElement('input');
+          tokenInput.type = 'hidden';
+          tokenInput.name = 'token_ws'; // Webpay espera este nombre de campo
+          tokenInput.value = webpayData.token;
+          form.appendChild(tokenInput);
+
+          document.body.appendChild(form);
+          form.submit();
+          // No es necesario setIsSubmitting(false) aquí porque la página redirigirá
+          return; // Salir de la función para evitar la lógica de abajo
+        } else {
+          toast.error('No se pudo iniciar el pago con Webpay. Intenta de nuevo o elige otro método.');
+        }
+      } else if (pedidoCreado) {
+        // Flujo para otros métodos de pago o si Webpay no se seleccionó
+        toast.info('Pedido realizado. Serás redirigido en breve.'); // O un mensaje específico del método
+        setTimeout(() => {
+          clearCart();
+          navigate(`/mis-pedidos/${pedidoCreado.id}`); // Redirigir al detalle del pedido
+        }, 2000);
+      }
     } catch (error) {
       toast.error(error.message || 'Hubo un problema al procesar tu pedido.');
       console.error("Error al enviar pedido:", error)
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -191,12 +222,13 @@ const CheckoutPage = () => {
             <input type="text" name="direccion_envio" value={formData.direccion_envio} onChange={handleChange} placeholder="Dirección de Envío (Calle y Número)" required className="w-full p-3 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500" />
             
             {/* Nuevos Selectores */}
-            <select name="estado_pedido_id" value={formData.estado_pedido_id} onChange={handleChange} required className="w-full p-3 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500 bg-white">
+            {/* El estado del pedido usualmente lo maneja el backend, no se selecciona aquí */}
+            {/* <select name="estado_pedido_id" value={formData.estado_pedido_id} onChange={handleChange} required className="w-full p-3 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500 bg-white">
               <option value="">{loadingOpciones ? "Cargando..." : "Selecciona Estado de Pedido"}</option>
               {estadosPedido.map(estado => (
                 <option key={estado.id} value={estado.id}>{estado.nombre_estado}</option>
               ))}
-            </select>
+            </select> */}
 
             <select name="tipo_entrega_id" value={formData.tipo_entrega_id} onChange={handleChange} required className="w-full p-3 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500 bg-white">
               <option value="">{loadingOpciones ? "Cargando..." : "Selecciona Tipo de Entrega"}</option>
@@ -204,11 +236,11 @@ const CheckoutPage = () => {
                 <option key={tipo.id} value={tipo.id}>{tipo.descripcion_entrega}</option>
               ))}
             </select>
-
+              
             <select name="metodo_pago_id" value={formData.metodo_pago_id} onChange={handleChange} required className="w-full p-3 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500 bg-white">
               <option value="">{loadingOpciones ? "Cargando..." : "Selecciona Método de Pago"}</option>
               {metodosPago.map(metodo => (
-                <option key={metodo.id} value={metodo.id}>{metodo.nombre_metodo}</option> // Asume que el campo es nombre_metodo
+                <option key={metodo.id} value={metodo.id}>{metodo.descripcion_pago || metodo.nombre_metodo}</option>
               ))}
             </select>
 
