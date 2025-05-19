@@ -32,6 +32,7 @@ class RegistroContableSerializer(serializers.ModelSerializer):
     # Ejemplo:
     # transaccion = TransaccionTarjetaClienteSerializer(read_only=True)
     # pedido = PedidoSerializer(read_only=True) # Asumiendo que tienes PedidoSerializer importado
+    monto = serializers.DecimalField(max_digits=12, decimal_places=0, required=False, allow_null=True)
     class Meta:
         model = RegistroContable
         fields = '__all__'

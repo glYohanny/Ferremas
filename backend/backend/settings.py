@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    'carrito_app',
+    
     'finanzas_app',
     'geografia_app',
     'integraciones_app',
@@ -38,10 +38,11 @@ INSTALLED_APPS = [
     'productos_app',
     'sucursales_app',
     'usuarios_app',
-        
+    'informes_app',   
     
     'rest_framework',
     'rest_framework_simplejwt',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -127,6 +128,13 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Configuración explícita de Caché (para asegurar que no se use caché activa)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
 
 # Modelo de Usuario Personalizado
 AUTH_USER_MODEL = 'usuarios_app.Usuario'

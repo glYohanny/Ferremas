@@ -1,10 +1,10 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import viewsets, permissions, status, generics
+from rest_framework import viewsets, permissions, status, generics, exceptions
 from rest_framework.views import APIView
-from usuarios_app.models import Rol, Usuario, TipoPersonal, Personal, Cliente, BitacoraActividad # Asegúrate que Cliente esté importado
+from usuarios_app.models import Rol, Usuario, Personal, Cliente, BitacoraActividad # Asegúrate que Cliente esté importado
 from .serializers import (
-    RolSerializer, UsuarioSerializer, TipoPersonalSerializer,
+    RolSerializer, UsuarioSerializer,
     ClienteRegistroSerializer,PersonalSerializer, 
     ClienteSerializer, BitacoraActividadSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer 
@@ -20,6 +20,25 @@ from django.conf import settings
 import os
 
 # ---------------------------
+# PERMISOS PERSONALIZADOS
+# ---------------------------
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """
+    Permiso personalizado para permitir solo a los propietarios de un objeto o administradores
+    realizar acciones sobre ese objeto (ver detalle, editar, eliminar).
+    """
+    def has_object_permission(self, request, view, obj):
+        # Para cualquier acción a nivel de objeto (retrieve, update, partial_update, destroy),
+        # el usuario debe ser el propietario del objeto o un administrador (is_staff).
+        # Asumimos que el 'obj' (Cliente, Personal, etc.) tiene un campo 'usuario'
+        # que lo vincula directamente al modelo Usuario.
+        if not hasattr(obj, 'usuario'):
+            # Si el objeto no tiene un campo 'usuario', este permiso no puede determinar la propiedad.
+            # Por seguridad, denegar el acceso.
+            return False
+        return obj.usuario == request.user or request.user.is_staff
+
+# ---------------------------
 # ROLES Y USUARIOS
 # ---------------------------
 class RolViewSet(viewsets.ModelViewSet):
@@ -32,18 +51,27 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioSerializer
     permission_classes = [permissions.IsAdminUser] # O permisos más granulares
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get', 'patch', 'put'], permission_classes=[permissions.IsAuthenticated])
     def me(self, request):
-        serializer = self.get_serializer(request.user) # Ahora usará UsuarioSerializer
-        return Response(serializer.data)
+        user = request.user
+        if request.method == 'GET':
+            serializer = self.get_serializer(user)
+            return Response(serializer.data)
+        elif request.method in ['PATCH', 'PUT']:
+            # Para PATCH (actualización parcial), partial=True
+            # Para PUT (actualización completa), partial=False
+            # Usaremos UsuarioSerializer, pero el frontend solo debería enviar campos permitidos
+            # como first_name, last_name. El serializer ya maneja qué campos son actualizables.
+            partial_update = request.method == 'PATCH'
+            serializer = self.get_serializer(user, data=request.data, partial=partial_update)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        # Por si acaso, aunque 'methods' lo limita
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 # ---------------------------
 # PERSONAL
 # ---------------------------
-class TipoPersonalViewSet(viewsets.ModelViewSet):
-    queryset = TipoPersonal.objects.all()
-    serializer_class = TipoPersonalSerializer
-    permission_classes = [permissions.IsAdminUser]
-
 class PersonalViewSet(viewsets.ModelViewSet):
     queryset = Personal.objects.all()
     serializer_class = PersonalSerializer
@@ -55,7 +83,22 @@ class PersonalViewSet(viewsets.ModelViewSet):
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
-    permission_classes = [permissions.IsAuthenticated] # Un cliente podría ver/editar su propio perfil
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin] 
+
+    def get_queryset(self):
+        """
+        Esta vista debe devolver una lista de todos los clientes
+        para los usuarios administradores, o solo el cliente asociado
+        al usuario actual para usuarios no administradores.
+        """
+        user = self.request.user
+        if user.is_staff: # O user.is_superuser o una comprobación de rol más específica
+            return Cliente.objects.all()
+        # Para usuarios no administradores, intentar obtener su propio perfil de cliente
+        cliente = Cliente.objects.filter(usuario=user).first()
+        if cliente:
+            return Cliente.objects.filter(pk=cliente.pk) # Devuelve un queryset con solo ese cliente
+        return Cliente.objects.none() # No devolver nada si no es admin y no tiene perfil de cliente
 
 # ---------------------------
 # BITÁCORA DE ACTIVIDAD
@@ -90,11 +133,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True) # Validará que el email esté presente y sea válido
         email = serializer.validated_data['email']
         
-        # La siguiente validación 'if not email:' ya no es estrictamente necesaria
-        # porque el serializador se encarga de que el email sea requerido.
-        if not email:
-            return Response({'error': 'Email es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             user = Usuario.objects.get(email=email)
         except Usuario.DoesNotExist:

@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class CarritoAppConfig(AppConfig):
+class InformesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'carrito_app'
+    name = 'informes_app'

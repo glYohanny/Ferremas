@@ -1,4 +1,7 @@
 from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.db.models import Sum
 
 class EstadoPedido(models.Model):
     nombre_estado = models.CharField(max_length=50, unique=True)
@@ -24,7 +27,7 @@ class TipoEntrega(models.Model):
 
 class Pedido(models.Model):
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) # Considerar UUID
-    cliente = models.ForeignKey('usuarios_app.Cliente', on_delete=models.PROTECT)
+    cliente = models.ForeignKey('usuarios_app.Usuario', on_delete=models.PROTECT, related_name='pedidos') # Asumiendo que tu AUTH_USER_MODEL es Usuario
     fecha = models.DateTimeField(auto_now_add=True)
     estado_pedido = models.ForeignKey(EstadoPedido, on_delete=models.PROTECT)
     tipo_entrega = models.ForeignKey(TipoEntrega, on_delete=models.PROTECT)
@@ -32,6 +35,13 @@ class Pedido(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     # direccion_envio_json = models.JSONField(null=True, blank=True, help_text="Copia de la dirección de envío al momento del pedido")
     # transaccion_asociada = models.ForeignKey('pagos_app.TransaccionTarjetaCliente', on_delete=models.SET_NULL, null=True, blank=True)
+
+    # Campos para información de envío y contacto (del frontend)
+    nombre_completo_contacto = models.CharField(max_length=255, help_text="Nombre completo para el contacto del pedido", null=True, blank=True)
+    email_contacto = models.EmailField(help_text="Email de contacto para el pedido", null=True, blank=True)
+    telefono_contacto = models.CharField(max_length=20, help_text="Teléfono de contacto para el pedido", null=True, blank=True)
+    direccion_envio = models.CharField(max_length=255, help_text="Dirección de envío completa", null=True, blank=True)
+    comuna_envio = models.ForeignKey('geografia_app.Comuna', on_delete=models.PROTECT, related_name='pedidos_enviados_aqui', help_text="Comuna de envío", null=True, blank=True)
 
     class Meta:
         db_table = 'pedidos'
@@ -45,7 +55,7 @@ class Pedido(models.Model):
         ]
 
     def __str__(self):
-        return f"Pedido {self.pk} - {self.cliente.nombre_completo} - {self.fecha.strftime('%Y-%m-%d')}"
+        return f"Pedido {self.pk} - {self.cliente.nombre_usuario if self.cliente else self.email_contacto} - {self.fecha.strftime('%Y-%m-%d')}"
 
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE)
@@ -65,7 +75,6 @@ class DetallePedido(models.Model):
     def save(self, *args, **kwargs):
         self.subtotal = self.cantidad * self.precio_unitario
         super().save(*args, **kwargs)
-        # Considerar una señal o método en el modelo Pedido para recalcular el total del pedido
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre_producto} para Pedido {self.pedido.pk}"
@@ -84,3 +93,20 @@ class PedidoProcesadoPor(models.Model):
 
     def __str__(self):
         return f"Procesamiento Pedido {self.pedido.pk}"
+
+@receiver(post_save, sender=DetallePedido)
+@receiver(post_delete, sender=DetallePedido)
+def actualizar_total_pedido(sender, instance, **kwargs):
+    """
+    Actualiza el campo 'total' del Pedido asociado cada vez que
+    un DetallePedido se guarda o se elimina.
+    """
+    pedido = instance.pedido
+    # Calcula el nuevo total sumando los subtotales de todos los detalles del pedido.
+    # Si no hay detalles, el total será 0.00.
+    nuevo_total = pedido.detalles.aggregate(
+        total_calculado=Sum('subtotal')
+    )['total_calculado'] or 0.00
+
+    if pedido.total != nuevo_total:
+        Pedido.objects.filter(pk=pedido.pk).update(total=nuevo_total)

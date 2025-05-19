@@ -19,9 +19,9 @@ urlpatterns = [
     path('api/pedidos/', include('pedidos_app.api.urls')),
     path('api/pagos/', include('pagos_app.api.urls')),
     path('api/marketing/', include('marketing_app.api.urls')),
-    path('api/carrito/', include('carrito_app.api.urls')),
     path('api/integraciones/', include('integraciones_app.api.urls')),
     path('api/finanzas/', include('finanzas_app.api.urls')),
+    path('api/informes/', include('informes_app.api.urls')), 
     
     # Authentication URLs (opcionales)
     path('api-auth/', include('rest_framework.urls')),

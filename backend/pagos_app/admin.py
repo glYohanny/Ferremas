@@ -4,7 +4,7 @@ from .models import TarjetaCliente, EstadoTransaccion, MetodoPago, TransaccionTa
 @admin.register(TarjetaCliente)
 class TarjetaClienteAdmin(admin.ModelAdmin):
     list_display = ('cliente', 'numero_tarjeta_ultimos_digitos', 'marca_tarjeta', 'fecha_expiracion')
-    search_fields = ('cliente__nombre_completo',)
+    search_fields = ('cliente__usuario__first_name', 'cliente__usuario__last_name', 'cliente__usuario__nombre_usuario')
     list_filter = ('marca_tarjeta', 'fecha_expiracion')
 
 @admin.register(EstadoTransaccion)
@@ -20,7 +20,7 @@ class MetodoPagoAdmin(admin.ModelAdmin):
 @admin.register(TransaccionTarjetaCliente)
 class TransaccionTarjetaClienteAdmin(admin.ModelAdmin):
     list_display = ('tarjeta_cliente_referencia', 'cliente', 'monto_total', 'fecha_transaccion', 'estado')
-    search_fields = ('cliente__nombre_completo', 'id_transaccion_pasarela')
+    search_fields = ('cliente__usuario__first_name', 'cliente__usuario__last_name', 'cliente__usuario__nombre_usuario', 'id_transaccion_pasarela')
     list_filter = ('estado', 'fecha_transaccion')
     date_hierarchy = 'fecha_transaccion'
 

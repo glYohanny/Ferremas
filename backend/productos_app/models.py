@@ -17,14 +17,27 @@ class Categoria(models.Model):
     def __str__(self):
         return self.nombre_categoria
 
+class Marca(models.Model):
+    nombre_marca = models.CharField(max_length=100, unique=True)
+    # Podrías añadir más campos a la marca si es necesario, como logo, descripción, etc.
+
+    class Meta:
+        db_table = 'marcas'
+        verbose_name = 'Marca'
+        verbose_name_plural = 'Marcas'
+
+    def __str__(self):
+        return self.nombre_marca
+
 class Producto(models.Model):
     nombre_producto = models.CharField(max_length=100)
     # slug = models.SlugField(unique=True, blank=True, help_text="Versión amigable para URL del producto")
     descripcion = models.TextField(blank=True, null=True)
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
-    marca = models.CharField(max_length=50, blank=True, null=True)
+    # marca = models.CharField(max_length=50, blank=True, null=True) # Campo anterior
     codigo_producto = models.CharField(max_length=50, unique=True)
+    marca = models.ForeignKey(Marca, on_delete=models.SET_NULL, null=True, blank=True, related_name='productos')
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, null=True, blank=True)
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True, verbose_name="Imagen del producto")
 

@@ -100,24 +100,13 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.nombre_usuario
 
-class TipoPersonal(models.Model):
-    nombre_tipo = models.CharField(max_length=50, unique=True)
-
-    class Meta:
-        db_table = 'tipo_personal'
-        verbose_name = 'Tipo de Personal'
-        verbose_name_plural = 'Tipos de Personal'
-
-    def __str__(self):
-        return self.nombre_tipo
-
 class Personal(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, primary_key=True)
     rut = models.CharField(max_length=12, unique=True)
-    nombre_completo = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    # nombre_completo = models.CharField(max_length=100) # Eliminado: se deriva de Usuario
+    # email = models.EmailField(unique=True) # Eliminado: se usa el de Usuario. Si se necesita un email de contacto laboral diferente, se puede mantener.
     sucursal = models.ForeignKey('sucursales_app.Sucursal', on_delete=models.SET_NULL, null=True, blank=True)
-    tipo = models.ForeignKey(TipoPersonal, on_delete=models.SET_NULL, null=True)
+   
 
     class Meta:
         db_table = 'personal'
@@ -125,12 +114,25 @@ class Personal(models.Model):
         verbose_name_plural = 'Personal'
 
     def __str__(self):
-        return self.nombre_completo
+        name_parts = [self.usuario.first_name, self.usuario.last_name]
+        full_name = " ".join(part for part in name_parts if part)
+        return full_name.strip() or self.usuario.nombre_usuario
+
+    @property
+    def email_contacto(self):
+        # Devuelve el email del usuario asociado.
+        # Si necesitaras un email de contacto laboral *diferente* al del usuario,
+        # entonces mantendrías un campo 'email' en este modelo Personal.
+        return self.usuario.email
+
+    @property
+    def nombre_completo_display(self):
+        name_parts = [self.usuario.first_name, self.usuario.last_name]
+        full_name = " ".join(part for part in name_parts if part)
+        return full_name.strip()
 
 class Cliente(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, primary_key=True)
-    nombre_completo = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
     direccion_detallada = models.TextField()
     telefono = models.CharField(max_length=15, blank=True, null=True)
     comuna = models.ForeignKey('geografia_app.Comuna', on_delete=models.PROTECT)
@@ -141,7 +143,19 @@ class Cliente(models.Model):
         verbose_name_plural = 'Clientes'
 
     def __str__(self):
-        return self.nombre_completo
+        name_parts = [self.usuario.first_name, self.usuario.last_name]
+        full_name = " ".join(part for part in name_parts if part)
+        return full_name.strip() or self.usuario.nombre_usuario
+
+    @property
+    def email_display(self):
+        return self.usuario.email
+
+    @property
+    def nombre_completo_display(self):
+        name_parts = [self.usuario.first_name, self.usuario.last_name]
+        full_name = " ".join(part for part in name_parts if part)
+        return full_name.strip()
 
 class BitacoraActividad(models.Model):
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, help_text="Usuario que realizó la acción, o nulo si es del sistema")

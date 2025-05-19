@@ -7,10 +7,10 @@ from .views import (
 
 # Crear router para ViewSets
 router = DefaultRouter()
-router.register(r'tarjetas', TarjetaClienteViewSet)
+router.register(r'tarjetas', TarjetaClienteViewSet, basename='tarjetacliente')
 router.register(r'estados-transaccion', EstadoTransaccionViewSet)
 router.register(r'metodos-pago', MetodoPagoViewSet)
-router.register(r'transacciones', TransaccionTarjetaClienteViewSet)
+router.register(r'transacciones', TransaccionTarjetaClienteViewSet, basename='transacciontarjetacliente')
 router.register(r'registros-contables', RegistroContableViewSet)
 
 # URLs de la aplicación

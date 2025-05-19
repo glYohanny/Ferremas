@@ -4,7 +4,7 @@ from .views import SucursalViewSet, BodegaViewSet
 
 # Crear router para ViewSets
 router = DefaultRouter()
-router.register(r'sucursales', SucursalViewSet)
+router.register(r'sucursal', SucursalViewSet)
 router.register(r'bodegas', BodegaViewSet)
 
 # URLs de la aplicación

@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import ( # Cambiado a importación relativa
-    RolViewSet, UsuarioViewSet, TipoPersonalViewSet,
+    RolViewSet, UsuarioViewSet,
     PersonalViewSet, ClienteViewSet, BitacoraActividadViewSet, 
     ClienteRegistroView, PasswordResetRequestView,PasswordResetConfirmView # Asegúrate de importar las vistas
 )
@@ -10,7 +10,6 @@ from .views import ( # Cambiado a importación relativa
 router = DefaultRouter()
 router.register(r'roles', RolViewSet)
 router.register(r'usuario', UsuarioViewSet, basename='usuario') # 'usuario' es el basename
-router.register(r'tipos-personal', TipoPersonalViewSet)
 router.register(r'personal', PersonalViewSet)
 router.register(r'clientes', ClienteViewSet)
 router.register(r'bitacora', BitacoraActividadViewSet)

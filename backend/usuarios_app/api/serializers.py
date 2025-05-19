@@ -1,8 +1,8 @@
 from rest_framework import serializers
-from usuarios_app.models import Rol, Usuario, TipoPersonal, Personal, Cliente, BitacoraActividad
+from usuarios_app.models import Rol, Usuario,  Personal, Cliente, BitacoraActividad
 from geografia_app.models import Region, Comuna
 from django.db import transaction # Para transacciones atómicas
-
+from sucursales_app.models import Sucursal
 
 # ---------------------------
 # ROLES Y USUARIOS
@@ -18,18 +18,28 @@ class UsuarioSerializer(serializers.ModelSerializer):
     rol_id = serializers.PrimaryKeyRelatedField(
         queryset=Rol.objects.all(), source='rol', write_only=True, allow_null=True, required=False
     )
+        # Campos para la creación de perfiles (opcionales y solo para escritura)
+    # Para Personal
+    rut_personal = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=12)
+    sucursal_id_personal = serializers.PrimaryKeyRelatedField(
+        queryset=Sucursal.objects.all(), source='sucursal_personal', write_only=True, required=False, allow_null=True
+    )
 
     class Meta:
         model = Usuario
         fields = [
-            'id', 'nombre_usuario',
+            'id', 'nombre_usuario', 'email', # Añadido email para que sea visible y editable por admin
+            'first_name', 'last_name', # Añadidos para que sean visibles y editables por admin
             'rol',          # Para lectura (objeto Rol serializado)
             'rol_id',       # Para escritura (ID del Rol)
             'cambio_password_pendiente',
             'is_active', 'is_staff', 'is_superuser', 'last_login',
             'groups',       # ManyToManyField, se espera una lista de IDs para escritura
             'user_permissions', # ManyToManyField, se espera una lista de IDs para escritura
-            'password'
+            'password',
+            # Campos para perfiles
+            'rut_personal', 'sucursal_id_personal',
+            # 'direccion_detallada_cliente', 'telefono_cliente', 'comuna_id_cliente',
         ]
         extra_kwargs = {
             'password': {
@@ -38,27 +48,49 @@ class UsuarioSerializer(serializers.ModelSerializer):
             },
             'last_login': {'read_only': True},
             'is_superuser': {'read_only': True}, # Generalmente manejado por createsuperuser
+            'email': {'required': False}, # Admin podría crear usuario sin email inicialmente, o actualizarlo
+            'first_name': {'required': False},
+            'last_name': {'required': False},
         }
-
+        
+    @transaction.atomic
     def create(self, validated_data):
-        # El manager del modelo Usuario (UsuarioManager) tiene create_user
-        # que maneja el hashing de la contraseña.
         groups_data = validated_data.pop('groups', None)
         user_permissions_data = validated_data.pop('user_permissions', None)
 
+        # Extraer datos de perfiles si existen, ANTES de pasarlos a create_user
+        rut_personal_data = validated_data.pop('rut_personal', None)
+        # 'sucursal_personal' es el nombre que tendrá en validated_data debido al 'source' en el campo del serializador
+        sucursal_personal_data = validated_data.pop('sucursal_personal', None) 
+
         # 'rol' ya será una instancia de Rol si 'rol_id' fue provisto, gracias a source='rol'
+        # El método create_user de UsuarioManager maneja el hashing de la contraseña.
         user = Usuario.objects.create_user(**validated_data)
 
         if groups_data:
             user.groups.set(groups_data)
         if user_permissions_data:
             user.user_permissions.set(user_permissions_data)
+
+        # Crear perfil de Personal si el rol lo indica y se proporcionaron datos
+        if user.rol: # Asegurarse que el usuario tiene un rol asignado
+           # Ajusta los nombres de roles según tu sistema exactamente como están en la BD
+           roles_que_requieren_personal = ['Administrador', 'Vendedor', 'Bodeguero', 'Contador'] # Ejemplo
+           if user.rol.nombre_rol in roles_que_requieren_personal and rut_personal_data:
+               Personal.objects.create(
+                   usuario=user,
+                   rut=rut_personal_data,
+                   sucursal=sucursal_personal_data # Puede ser None si no se proporcionó y el modelo lo permite
+               )
+
         return user
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         groups_data = validated_data.pop('groups', None)
         user_permissions_data = validated_data.pop('user_permissions', None)
+        rut_personal_data = validated_data.pop('rut_personal', None)
+        sucursal_personal_data = validated_data.pop('sucursal_personal', None)
 
         # Actualizar otros campos
         # 'rol' ya será una instancia de Rol si 'rol_id' fue provisto
@@ -76,15 +108,26 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if user_permissions_data is not None: # Permite limpiar permisos
             instance.user_permissions.set(user_permissions_data)
 
+        # Actualizar o crear perfil de Personal si es necesario y se proporcionaron datos
+        if instance.rol:
+            roles_que_requieren_personal = ['Administrador', 'Vendedor', 'Bodeguero', 'Contador'] # Ejemplo
+            if instance.rol.nombre_rol in roles_que_requieren_personal and rut_personal_data:
+                personal_profile, created = Personal.objects.update_or_create(
+                    usuario=instance,
+                    defaults={
+                        'rut': rut_personal_data,
+                        'sucursal': sucursal_personal_data
+                    }
+                )
+            elif hasattr(instance, 'personal') and instance.rol.nombre_rol not in roles_que_requieren_personal:
+                # Opcional: si el rol cambia a uno que no requiere personal, podrías eliminar el perfil Personal
+                instance.personal.delete()
+
         return instance
 
 # ---------------------------
 # PERSONAL
 # ---------------------------
-class TipoPersonalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TipoPersonal
-        fields = '__all__'
 
 class PersonalSerializer(serializers.ModelSerializer):
     # 'usuario' es la clave primaria (OneToOneField). DRF lo manejará como un campo de ID.
@@ -170,17 +213,9 @@ class ClienteRegistroSerializer(serializers.ModelSerializer):
         validated_data['rol'] = rol_cliente # Asignamos el rol al diccionario de datos validados
         user = Usuario.objects.create_user(**validated_data)
 
-        # Preparar datos para el Cliente
-        # El email del cliente será el mismo que el del usuario.
-        # El modelo Cliente tiene un campo email, así que lo poblamos.
-        email_cliente_data = user.email
-        nombre_completo_cliente_data = f"{user.first_name} {user.last_name}".strip()
-
         # Crear el perfil de Cliente asociado
         Cliente.objects.create(
             usuario=user,
-            nombre_completo=nombre_completo_cliente_data,
-            email=email_cliente_data,
             direccion_detallada=direccion_cliente_data,
             telefono=telefono_cliente_data,
             comuna=comuna_cliente_data

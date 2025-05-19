@@ -14,7 +14,7 @@ class TarjetaCliente(models.Model):
         verbose_name_plural = 'Tarjetas de Clientes (Referencias)'
 
     def __str__(self):
-        return f"Tarjeta terminada en {self.numero_tarjeta_ultimos_digitos} de {self.cliente.nombre_completo}"
+        return f"Tarjeta terminada en {self.numero_tarjeta_ultimos_digitos} de {self.cliente.nombre_completo_display}"
 
 class EstadoTransaccion(models.Model):
     nombre_estado = models.CharField(max_length=50, unique=True)
@@ -42,7 +42,7 @@ class TransaccionTarjetaCliente(models.Model):
     tarjeta_cliente_referencia = models.ForeignKey(TarjetaCliente, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Referencia Tarjeta")
     id_transaccion_pasarela = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name="ID Transacción Pasarela")
     cliente = models.ForeignKey('usuarios_app.Cliente', on_delete=models.PROTECT)
-    monto_total = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_total = models.DecimalField(max_digits=10, decimal_places=0)
     estado = models.ForeignKey(EstadoTransaccion, on_delete=models.PROTECT)
     metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     fecha_transaccion = models.DateTimeField(auto_now_add=True)
@@ -58,18 +58,25 @@ class TransaccionTarjetaCliente(models.Model):
         ]
 
     def __str__(self):
-        return f"Transacción {self.id_transaccion_pasarela or self.id} - {self.cliente.nombre_completo} - {self.monto_total}"
+        return f"Transacción {self.id_transaccion_pasarela or self.id} - {self.cliente.nombre_completo_display} - {self.monto_total}"
 
 class RegistroContable(models.Model):
     transaccion_origen = models.ForeignKey(TransaccionTarjetaCliente, on_delete=models.SET_NULL, null=True, blank=True)
     # pedido_origen = models.ForeignKey('pedidos_app.Pedido', on_delete=models.SET_NULL, null=True, blank=True)
     descripcion = models.TextField()
-    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    monto = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True) # Permitir null y blank
     # cuenta_contable_debito = models.CharField(max_length=100, blank=True, null=True)
     # cuenta_contable_credito = models.CharField(max_length=100, blank=True, null=True)
     fecha_contable = models.DateField(help_text="Fecha del asiento contable")
     fecha_registro = models.DateTimeField(auto_now_add=True)
     registrado_por = models.ForeignKey('usuarios_app.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        # Si el monto no se ha establecido y hay una transacción de origen,
+        # tomar el monto de la transacción.
+        if self.monto is None and self.transaccion_origen:
+            self.monto = self.transaccion_origen.monto_total
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'registro_contable'
