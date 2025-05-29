@@ -1,8 +1,8 @@
 from rest_framework import serializers
-from usuarios_app.models import Rol, Usuario,  Personal, Cliente, BitacoraActividad
+from usuarios_app.models import Rol, Usuario,  Personal, Cliente, BitacoraActividad # BitacoraActividad ya estaba importada
 from geografia_app.models import Region, Comuna
 from django.db import transaction # Para transacciones atómicas
-from sucursales_app.models import Sucursal
+from sucursales_app.models import Sucursal, Bodega # Importar Bodega
 
 # ---------------------------
 # ROLES Y USUARIOS
@@ -24,6 +24,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
     sucursal_id_personal = serializers.PrimaryKeyRelatedField(
         queryset=Sucursal.objects.all(), source='sucursal_personal', write_only=True, required=False, allow_null=True
     )
+    bodega_id_personal = serializers.PrimaryKeyRelatedField(
+        queryset=Bodega.objects.all(), source='bodega_asignada_personal', write_only=True, required=False, allow_null=True
+    )
 
     class Meta:
         model = Usuario
@@ -38,7 +41,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'user_permissions', # ManyToManyField, se espera una lista de IDs para escritura
             'password',
             # Campos para perfiles
-            'rut_personal', 'sucursal_id_personal',
+            'rut_personal', 'sucursal_id_personal', 'bodega_id_personal',
             # 'direccion_detallada_cliente', 'telefono_cliente', 'comuna_id_cliente',
         ]
         extra_kwargs = {
@@ -61,7 +64,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
         # Extraer datos de perfiles si existen, ANTES de pasarlos a create_user
         rut_personal_data = validated_data.pop('rut_personal', None)
         # 'sucursal_personal' es el nombre que tendrá en validated_data debido al 'source' en el campo del serializador
-        sucursal_personal_data = validated_data.pop('sucursal_personal', None) 
+        sucursal_personal_data = validated_data.pop('sucursal_personal', None)
+        bodega_asignada_personal_data = validated_data.pop('bodega_asignada_personal', None)
 
         # 'rol' ya será una instancia de Rol si 'rol_id' fue provisto, gracias a source='rol'
         # El método create_user de UsuarioManager maneja el hashing de la contraseña.
@@ -80,7 +84,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
                Personal.objects.create(
                    usuario=user,
                    rut=rut_personal_data,
-                   sucursal=sucursal_personal_data # Puede ser None si no se proporcionó y el modelo lo permite
+                   sucursal=sucursal_personal_data, # Puede ser None si no se proporcionó y el modelo lo permite
+                   bodega_asignada=bodega_asignada_personal_data # Puede ser None
                )
 
         return user
@@ -91,6 +96,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         user_permissions_data = validated_data.pop('user_permissions', None)
         rut_personal_data = validated_data.pop('rut_personal', None)
         sucursal_personal_data = validated_data.pop('sucursal_personal', None)
+        bodega_asignada_personal_data = validated_data.pop('bodega_asignada_personal', None)
 
         # Actualizar otros campos
         # 'rol' ya será una instancia de Rol si 'rol_id' fue provisto
@@ -116,7 +122,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
                     usuario=instance,
                     defaults={
                         'rut': rut_personal_data,
-                        'sucursal': sucursal_personal_data
+                        'sucursal': sucursal_personal_data,
+                        'bodega_asignada': bodega_asignada_personal_data
                     }
                 )
             elif hasattr(instance, 'personal') and instance.rol.nombre_rol not in roles_que_requieren_personal:
@@ -132,12 +139,22 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class PersonalSerializer(serializers.ModelSerializer):
     # 'usuario' es la clave primaria (OneToOneField). DRF lo manejará como un campo de ID.
     # Para mostrar detalles del usuario, sucursal, tipo en lectura:
-    # usuario_detalle = UsuarioSerializer(source='usuario', read_only=True) # Renombrar para evitar conflicto con el campo 'usuario' (ID)
-    # sucursal = SucursalSerializer(read_only=True)
-    # tipo = TipoPersonalSerializer(read_only=True)
+    # usuario_detalle = UsuarioMinSerializer(source='usuario', read_only=True) # Un serializador más simple para el usuario
+    sucursal_detalle = serializers.StringRelatedField(source='sucursal', read_only=True) # Mostrar nombre de sucursal
+    bodega_asignada_detalle = serializers.StringRelatedField(source='bodega_asignada', read_only=True) # Mostrar nombre de bodega
+
+    # Para escritura, si se actualiza Personal directamente:
+    sucursal = serializers.PrimaryKeyRelatedField(queryset=Sucursal.objects.all(), allow_null=True, required=False)
+    bodega_asignada = serializers.PrimaryKeyRelatedField(queryset=Bodega.objects.all(), allow_null=True, required=False)
+
     class Meta:
         model = Personal
-        fields = '__all__'
+        fields = [
+            'usuario', 'rut', 'sucursal', 'sucursal_detalle',
+            'bodega_asignada', 'bodega_asignada_detalle'
+        ]
+        # Si quieres que 'usuario' sea de solo lectura cuando se actualiza Personal directamente:
+        # read_only_fields = ['usuario']
 
 # ---------------------------
 # CLIENTES
@@ -219,6 +236,12 @@ class ClienteRegistroSerializer(serializers.ModelSerializer):
             direccion_detallada=direccion_cliente_data,
             telefono=telefono_cliente_data,
             comuna=comuna_cliente_data
+        )
+
+        # Registrar en la bitácora
+        BitacoraActividad.objects.create(
+            usuario=user,  # El usuario que se registró
+            accion=f"El usuario {user.nombre_usuario} se registró como cliente."
         )
         return user
 

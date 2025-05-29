@@ -34,7 +34,7 @@ class Producto(models.Model):
     # slug = models.SlugField(unique=True, blank=True, help_text="Versión amigable para URL del producto")
     descripcion = models.TextField(blank=True, null=True)
     precio = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.PositiveIntegerField(default=0)
+    # stock = models.PositiveIntegerField(default=0) # Eliminamos el campo de stock directo
     # marca = models.CharField(max_length=50, blank=True, null=True) # Campo anterior
     codigo_producto = models.CharField(max_length=50, unique=True)
     marca = models.ForeignKey(Marca, on_delete=models.SET_NULL, null=True, blank=True, related_name='productos')
@@ -59,3 +59,16 @@ class Producto(models.Model):
 
     def __str__(self):
         return f"{self.nombre_producto} ({self.codigo_producto})"
+
+    @property
+    def stock_total(self):
+        """
+        Calcula el stock total del producto sumando las cantidades
+        de todos los registros de Inventario asociados.
+        """
+        from inventario_app.models import Inventario # Importación local para evitar importación circular
+        # Accede a los inventarios relacionados a través del related_name por defecto 'inventario_set'
+        total = self.inventario_set.aggregate(
+            total_stock=models.Sum('cantidad')
+        )['total_stock']
+        return total or 0

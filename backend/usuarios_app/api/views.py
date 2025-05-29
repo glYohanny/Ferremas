@@ -1,6 +1,6 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import viewsets, permissions, status, generics, exceptions
+from rest_framework import viewsets, permissions, status, generics
 from rest_framework.views import APIView
 from usuarios_app.models import Rol, Usuario, Personal, Cliente, BitacoraActividad # Asegúrate que Cliente esté importado
 from .serializers import (
@@ -18,6 +18,12 @@ from django.urls import reverse
 from django.core.mail import send_mail
 from django.conf import settings
 import os
+
+# Para personalizar la vista de obtención de tokens y registrar el login
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+# Para LogoutView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 # ---------------------------
 # PERMISOS PERSONALIZADOS
@@ -66,6 +72,11 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(user, data=request.data, partial=partial_update)
             serializer.is_valid(raise_exception=True)
             serializer.save()
+            # Registrar en la bitácora
+            BitacoraActividad.objects.create(
+                usuario=user,
+                accion=f"El usuario {user.nombre_usuario} actualizó su perfil."
+            )
             return Response(serializer.data)
         # Por si acaso, aunque 'methods' lo limita
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -190,6 +201,83 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         if user is not None and PasswordResetTokenGenerator().check_token(user, token):
             user.set_password(new_password)
             user.save()
+            # Registrar en la bitácora
+            BitacoraActividad.objects.create(
+                usuario=user,
+                accion=f"El usuario {user.nombre_usuario} restableció su contraseña."
+            )
             return Response({'message': 'Tu contraseña ha sido restablecida exitosamente.'}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'El enlace de restablecimiento es inválido o ha expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+# ---------------------------
+# VISTA PERSONALIZADA PARA OBTENER TOKENS (LOGIN) Y REGISTRAR EN BITÁCORA
+# ---------------------------
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Puedes añadir claims personalizados al token aquí si lo necesitas
+        # Por ejemplo:
+        # token['nombre_usuario'] = user.nombre_usuario
+        # token['rol'] = user.rol.nombre_rol if user.rol else None
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # 'self.user' es establecido por TokenObtainPairSerializer después de una validación exitosa.
+        # Este es el punto donde el usuario se ha autenticado correctamente.
+        if self.user:
+            BitacoraActividad.objects.create(
+                usuario=self.user,
+                accion=f"El usuario {self.user.nombre_usuario} inició sesión (vía token)."
+            )
+        return data
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Vista personalizada para el login que utiliza el CustomTokenObtainPairSerializer
+    para registrar el inicio de sesión en la bitácora.
+    """
+    serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True) # Mantenemos raise_exception para ver errores de validación estándar
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        except Exception as e: # Capturamos cualquier excepción de is_valid(raise_exception=True)
+            # Puedes añadir un log más formal aquí si lo deseas, en lugar de print
+            raise # Re-lanzamos la excepción para que DRF la maneje como normalmente lo haría
+
+# ---------------------------
+# VISTA PARA LOGOUT (INVALIDAR REFRESH TOKEN)
+# ---------------------------
+# Tu LogoutView ya está definida y parece correcta para invalidar tokens
+# y registrar en la bitácora.
+class LogoutView(APIView):
+    """
+    Vista para el logout de usuarios. Invalida el refresh token.
+    """
+    permission_classes = (permissions.IsAuthenticated,) # Solo usuarios autenticados pueden hacer logout
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh_token")
+            if not refresh_token:
+                return Response({"detail": "Refresh token no proporcionado."}, status=status.HTTP_400_BAD_REQUEST)
+
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            # Registrar cierre de sesión en la bitácora
+            # request.user debería estar disponible debido a IsAuthenticated
+            BitacoraActividad.objects.create(
+                usuario=request.user,
+                accion=f"El usuario {request.user.nombre_usuario} cerró sesión (token invalidado)."
+            )
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            # Puedes añadir un log más formal aquí si lo deseas, en lugar de print
+            return Response({"detail": "Error al procesar el logout o token inválido."}, status=status.HTTP_400_BAD_REQUEST)

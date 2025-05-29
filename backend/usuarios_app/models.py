@@ -106,7 +106,7 @@ class Personal(models.Model):
     # nombre_completo = models.CharField(max_length=100) # Eliminado: se deriva de Usuario
     # email = models.EmailField(unique=True) # Eliminado: se usa el de Usuario. Si se necesita un email de contacto laboral diferente, se puede mantener.
     sucursal = models.ForeignKey('sucursales_app.Sucursal', on_delete=models.SET_NULL, null=True, blank=True)
-   
+    bodega_asignada = models.ForeignKey('sucursales_app.Bodega', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Bodega Asignada")
 
     class Meta:
         db_table = 'personal'
@@ -130,6 +130,14 @@ class Personal(models.Model):
         name_parts = [self.usuario.first_name, self.usuario.last_name]
         full_name = " ".join(part for part in name_parts if part)
         return full_name.strip()
+
+    def clean(self):
+        super().clean()
+        # Validar que la bodega asignada pertenezca a la sucursal del personal (si ambas están definidas)
+        if self.bodega_asignada and self.sucursal:
+            if self.bodega_asignada.sucursal != self.sucursal:
+                from django.core.exceptions import ValidationError
+                raise ValidationError({'bodega_asignada': _('La bodega asignada debe pertenecer a la sucursal del personal.')})
 
 class Cliente(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, primary_key=True)

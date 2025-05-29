@@ -2,12 +2,11 @@ from django.db import models
 from django.utils import timezone
 
 class ApiIntegrationLog(models.Model):
-    """
-    Registro de llamadas a APIs externas.
-    """
+    """Registro detallado de cada intento de comunicación con una API externa."""
+
     api_config = models.ForeignKey(
         'ApiConfig',
-        on_delete=models.SET_NULL, # O models.CASCADE si prefieres eliminar logs si se elimina la config
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='logs',
@@ -29,6 +28,8 @@ class ApiIntegrationLog(models.Model):
         verbose_name_plural = 'Registros de Integraciones API'
 
 class ApiConfig(models.Model):
+    """Configuración para interactuar con una API externa específica."""
+
     nombre_api = models.CharField(max_length=100, unique=True)
     endpoint_url = models.URLField(max_length=500)
     metodo_http = models.CharField(max_length=10, default='GET', help_text="GET, POST, PUT, DELETE, etc.")

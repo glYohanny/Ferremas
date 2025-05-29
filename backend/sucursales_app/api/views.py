@@ -10,7 +10,11 @@ class SucursalViewSet(viewsets.ModelViewSet):
     serializer_class = SucursalSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+
 class BodegaViewSet(viewsets.ModelViewSet):
     queryset = Bodega.objects.all()
     serializer_class = BodegaSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    
+    

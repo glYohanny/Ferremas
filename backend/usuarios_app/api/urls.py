@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import ( # Cambiado a importación relativa
     RolViewSet, UsuarioViewSet,
     PersonalViewSet, ClienteViewSet, BitacoraActividadViewSet, 
-    ClienteRegistroView, PasswordResetRequestView,PasswordResetConfirmView # Asegúrate de importar las vistas
+    ClienteRegistroView, PasswordResetRequestView,PasswordResetConfirmView,
+    CustomTokenObtainPairView, LogoutView # Importar LogoutView
 )
 
 # Crear router para ViewSets
@@ -21,4 +22,7 @@ urlpatterns = [
     path('registro/cliente/', ClienteRegistroView.as_view(), name='app-cliente-registro'),
     path('password-reset-request/', PasswordResetRequestView.as_view(), name='app-password-reset-request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='app-password-reset-confirm'),
+    # Rutas para login (obtención de token) y logout
+    # path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'), # Comentado: Se define globalmente en backend/urls.py
+    path('logout/', LogoutView.as_view(), name='app_logout'),
 ]

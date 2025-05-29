@@ -1,5 +1,6 @@
 from django.db import models
 
+# Almacena referencias a tarjetas de clientes (tokenizadas) para pagos.
 class TarjetaCliente(models.Model):
     # NUNCA ALMACENAR CVV. Considerar tokenización para el número de tarjeta.
     numero_tarjeta_ultimos_digitos = models.CharField(max_length=4, verbose_name="Últimos 4 dígitos")
@@ -14,8 +15,12 @@ class TarjetaCliente(models.Model):
         verbose_name_plural = 'Tarjetas de Clientes (Referencias)'
 
     def __str__(self):
-        return f"Tarjeta terminada en {self.numero_tarjeta_ultimos_digitos} de {self.cliente.nombre_completo_display}"
+        cliente_nombre = "Cliente Desconocido"
+        if self.cliente:
+            cliente_nombre = self.cliente.nombre_completo_display # Asumiendo que Cliente tiene este método o propiedad
+        return f"Tarjeta terminada en {self.numero_tarjeta_ultimos_digitos} de {cliente_nombre}"
 
+# Define los posibles estados de una transacción de pago.
 class EstadoTransaccion(models.Model):
     nombre_estado = models.CharField(max_length=50, unique=True)
 
@@ -27,6 +32,7 @@ class EstadoTransaccion(models.Model):
     def __str__(self):
         return self.nombre_estado
 
+# Define los diferentes métodos de pago aceptados.
 class MetodoPago(models.Model):
     descripcion_pago = models.CharField(max_length=50, unique=True)
 
@@ -38,6 +44,7 @@ class MetodoPago(models.Model):
     def __str__(self):
         return self.descripcion_pago
 
+# Registra cada transacción de pago realizada por un cliente.
 class TransaccionTarjetaCliente(models.Model):
     tarjeta_cliente_referencia = models.ForeignKey(TarjetaCliente, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Referencia Tarjeta")
     id_transaccion_pasarela = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name="ID Transacción Pasarela")
@@ -47,6 +54,9 @@ class TransaccionTarjetaCliente(models.Model):
     metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     fecha_transaccion = models.DateTimeField(auto_now_add=True)
     descripcion = models.TextField(blank=True, null=True)
+    pedido = models.ForeignKey('pedidos_app.Pedido', on_delete=models.SET_NULL, null=True, blank=True, related_name='transacciones_pago')
+    codigo_autorizacion_pasarela = models.CharField(max_length=50, blank=True, null=True, verbose_name="Código Autorización Pasarela")
+    ultimos_digitos_tarjeta = models.CharField(max_length=4, blank=True, null=True, verbose_name="Últimos Dígitos Tarjeta")
 
     class Meta:
         db_table = 'transacciones_tarjeta_cliente'
@@ -58,8 +68,12 @@ class TransaccionTarjetaCliente(models.Model):
         ]
 
     def __str__(self):
-        return f"Transacción {self.id_transaccion_pasarela or self.id} - {self.cliente.nombre_completo_display} - {self.monto_total}"
+        cliente_nombre = "Cliente Desconocido"
+        if self.cliente:
+            cliente_nombre = self.cliente.nombre_completo_display # Asumiendo que Cliente tiene este método o propiedad
+        return f"Transacción {self.id_transaccion_pasarela or self.pk} - {cliente_nombre} - {self.monto_total}"
 
+# Almacena los asientos contables generados a partir de transacciones.
 class RegistroContable(models.Model):
     transaccion_origen = models.ForeignKey(TransaccionTarjetaCliente, on_delete=models.SET_NULL, null=True, blank=True)
     # pedido_origen = models.ForeignKey('pedidos_app.Pedido', on_delete=models.SET_NULL, null=True, blank=True)

@@ -10,5 +10,4 @@ router.register(r'conversiones', ConversionDivisaViewSet)
 # URLs de la aplicación
 urlpatterns = [
     path('', include(router.urls)),
-    # Rutas adicionales específicas no manejadas por el router
 ]

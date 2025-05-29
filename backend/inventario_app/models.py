@@ -1,6 +1,7 @@
 from django.db import models
 
 class Inventario(models.Model):
+    """Representa la cantidad de un producto específico en una bodega determinada."""
     producto = models.ForeignKey('productos_app.Producto', on_delete=models.CASCADE)
     bodega = models.ForeignKey('sucursales_app.Bodega', on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField(default=0)
@@ -19,6 +20,7 @@ class Inventario(models.Model):
         return f"{self.producto.nombre_producto} en {self.bodega.nombre_bodega}: {self.cantidad}"
 
 class HistorialStock(models.Model):
+    """Registra los cambios en el stock de productos, como entradas o salidas."""
     producto = models.ForeignKey('productos_app.Producto', on_delete=models.CASCADE)
     bodega = models.ForeignKey('sucursales_app.Bodega', on_delete=models.CASCADE, null=True, blank=True)
     cantidad_cambiada = models.IntegerField(help_text="Positivo para entrada, negativo para salida")
